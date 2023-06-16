@@ -104,32 +104,26 @@ def Random(grafo, f_obj, n_asignaciones = float('inf')):
 
 # Definicion de los movimientos
     
-def cambiar1(x, h):
+
+# El unico movimiento que consideran los autores originales es este para m = 2
+def cambiarVarios(x, h, m = 2, *args):
     n = len(x)
     y = x[:]
-    i = random.choice(range(n))
-    y[i] = random.choice(h)
+    l = random.sample(range(n),m)
+    for i in l: y[i] = random.choice(h)
     return [y]
 
-def cambiar2(x, h):
-    n = len(x)
-    y = x[:]
-    i, j = random.sample(range(n),2)
-    y[i] = random.choice(h)
-    y[j] = random.choice(h)
-    return [y]
-
-def swap(x, h):
+def swap(x, h, *args):
     n = len(x)
     y = x[:]
     i, j = random.sample(range(n),2)
     y[i], y[j] = y[j], y[i]
     return [y]
 
-def repetirMov(f, x, h, m):
+def repetirMov(f, x, h, m = 2, repeticiones = 2):
     y = []
-    for l in range(m):
-        y.extend( f(x, h) )
+    for l in range(repeticiones):
+        y.extend( f(x, h, m) )
     return y
 
 
