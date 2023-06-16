@@ -472,11 +472,11 @@ if __name__ == "__main__":
     print(time.time() - a)
     print(HH.mejor_val)
     
-    # a = time.time()    
-    # HH.iterar(len(grafo.nodos_por_color[None]) * 5)
-    # print(time.time() - a)
-    # print(HH.mejor_val)
-    # P.asignacionPeriodos(HH.grafo)
+    a = time.time()    
+    HH.iterar(len(grafo.nodos_por_color[None]) * 5)
+    print(time.time() - a)
+    print(HH.mejor_val)
+    P.asignacionPeriodos(HH.grafo)
     
     # Segunda Fase: asignar las salas conocidos los periodos asignados
     
