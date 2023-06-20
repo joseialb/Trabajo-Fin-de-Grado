@@ -5,8 +5,9 @@ from math import ceil
 # Control de Excepciones
 
 class SolucionNoFactible(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg, datos = None):
         self.message = msg
+        self.datos = datos
         super().__init__(self.message)
     def __repr__(self):
         return self.message
@@ -35,28 +36,25 @@ def GraphHeuristic(eleccionNodo, grafo, f_opt, n_asignaciones = float('inf')):
     while i < n_it and len(grafo.nodos_por_color[None]) > 0:
         x = eleccionNodo(grafo)
         valor = float('inf')
-        for color in grafo.colores - grafo.colores_vecinos(x):
-            d = grafo.nodos_cambiados(x, color)
+        for color in grafo.colores - grafo.nodos[x].colores_vecinos:
             try:
-                grafo.colorear_con_restricciones(grafo.nodos[x], color)
+                cambios = grafo.colorear(grafo.nodos[x], color)
                 nuevo_val = f_opt(grafo, nodo = x, color = color)
                 if nuevo_val < valor:
                     nuevo_color = color
                     valor = nuevo_val
+                grafo.revertirCambios(cambios)
             except SolucionNoFactible as e:
+                grafo.revertirCambios(e.datos)
                 continue
-            finally:
-                for nodo2 in d.keys():
-                    color_nuevo = grafo.nodos[nodo2].color
-                    color_viejo = d[nodo2].color
-                    if color_nuevo != color_viejo:
-                        grafo.nodos_por_color[color_nuevo].remove(nodo2)
-                        grafo.nodos_por_color[color_viejo].add(nodo2)
-                    grafo.nodos[nodo2] = d[nodo2]            
+            except Exception as ee:
+               print(ee)
+               print(type(ee))
+               raise ee
         if valor == float('inf'):
             raise HeuristicaFallida("Ningun color disponible es valido", i)
         else:
-            grafo.colorear_con_restricciones(grafo.nodos[x], nuevo_color)
+            a = grafo.colorear(grafo.nodos[x], nuevo_color)
         i += 1
 
 
@@ -67,11 +65,11 @@ def LargestDegree(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoLargestDegree, grafo, f_obj, n_asignaciones)
 
 
-def nodoLargestSaturationDegree(grafo):
-    return max(grafo.nodos_por_color[None], key=lambda x: len(grafo.colores_vecinos(x)))
+def nodoLeastSaturationDegree(grafo):
+    return max(grafo.nodos_por_color[None], key=lambda x: len(grafo.nodos[x].colores_vecinos))
 
-def LargestSaturationDegree(grafo, f_obj, n_asignaciones = float('inf')):
-    return GraphHeuristic(nodoLargestSaturationDegree, grafo, f_obj, n_asignaciones)
+def LeastSaturationDegree(grafo, f_obj, n_asignaciones = float('inf')):
+    return GraphHeuristic(nodoLeastSaturationDegree, grafo, f_obj, n_asignaciones)
 
 
 def nodoLargestColorDegree(grafo):
@@ -100,7 +98,23 @@ def nodoRandom(grafo):
 
 def Random(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoRandom, grafo, f_obj, n_asignaciones)
-        
+
+"""
+# Heuristica Propia: Ordena segun el numero de restricciones extra, y en caso de empate segun largest enrolment
+def nodoRestriccionesExtra(grafo):
+    # Habria que añadir los de exclusion a los datos del grafo y revisar nombres de exclusive y exclusion y exclusivos y tal
+    for x, nodo in grafo.nodos_por_color[None].items():
+        n_restricciones = 0
+        if x in grafo.coincidence.keys(): n_restricciones += len(grafo.coincidence[x])
+        if x in grafo.after.keys(): n_restricciones += len(grafo.after[x])
+        if x in grafo.before.keys(): n_restricciones += len(grafo.before[x])
+        if x in grafo.exclusion.keys(): n_restricciones += len(grafo.exclusion[x])
+        if x in grafo.exclusivos.keys(): n_restricciones += len(grafo.exclusivos[x])
+    return max(grafo.nodos_por_color[None], key=lambda x: (n_restricciones, grafo.nodos[x].peso()))   
+
+def RestriccionesExtra(grafo, f_obj, n_asignaciones = float('inf')):
+    return GraphHeuristic(nodoRestriccionesExtra, grafo, f_obj, n_asignaciones)
+"""
 
 # Definicion de los movimientos
     
@@ -152,7 +166,7 @@ class GHH():
         except Exception as e:
             self.mejor_sol = "Solucion inicial infactible"
             self.mejor_val = float('inf')
-            print(e)
+            # raise e
     
     def __repr__(self):
         return f"{self.mejor_sol}\n\nCon valor: {self.mejor_val}"
@@ -164,7 +178,8 @@ class GHH():
                 h(g, self.f_heur, self.e)
             except HeuristicaFallida as error:
                 self.fallidas.append(hl[:i+1])
-                raise HeuristicaFallida(error.message, i*self.e+error.paso_de_error)
+                print(i*self.e+error.paso_de_error)
+                raise HeuristicaFallida(error.message, i*self.e+error.paso_de_error) from error
                 # Medimos la distancia a la factibilidad en funcion del numero de pasos que tarde la heuristica en no encontrar una solucion factible con el objetivo de alcanzar la factibilidad en vecindarios donde todas las soluciones generen coloraciones infactibles
         return g
     
@@ -219,7 +234,7 @@ class GHH():
         if max_it is None: max_it = 10*len(self.grafo.nodos_por_color[None])
         for i in range(max_it):
             self.iteracion()
-
+            print(i, self.mejor_val)
 
 
 
