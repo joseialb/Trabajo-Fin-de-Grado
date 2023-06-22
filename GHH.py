@@ -1,5 +1,5 @@
-import random
-from math import ceil
+import random, time
+from math import ceil, exp
 
 
 # Control de Excepciones
@@ -30,36 +30,76 @@ def prefijoEnFallidas(hl, fallidas, e):
 
 # Definicion de las heuristicas constructivas para grafos
 
-def GraphHeuristic(eleccionNodo, grafo, f_opt, n_asignaciones = float('inf')):
+# Version predictiva con ruleta: Para cada color, predice el incremento de la funcion objetivo que va a generar colorear el nodo x y en base a esto le asigna una probabilidad
+# inversa a dicho valor. Posteriormente aplica la selección por ruleta e intenta colorear el nodo de dicho color. Si no es factible, vuelve a seleccionar otro color hasta que no queden
+def GraphHeuristic(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
     n_it = min( n_asignaciones, len(grafo.nodos_por_color[None]) )
     i = 0
     while i < n_it and len(grafo.nodos_por_color[None]) > 0:
         x = eleccionNodo(grafo)
         valor = float('inf')
-        for color in grafo.colores - grafo.nodos[x].colores_vecinos:
+        colores_disponibles = list(grafo.colores - grafo.nodos[x].colores_vecinos)
+        # probabilidades = []
+        # for color in colores_disponibles:
+        #     probabilidades.append(10*exp(-2*f_pred(grafo, nodo = x, color = color)))
+        valores = []
+        for color in colores_disponibles:
+            valores.append(f_pred(grafo, nodo = x, color = color))
+        
+        while len(colores_disponibles) > 0:
             try:
-                cambios = grafo.colorear(grafo.nodos[x], color)
-                nuevo_val = f_opt(grafo, nodo = x, color = color)
-                if nuevo_val < valor:
-                    nuevo_color = color
-                    valor = nuevo_val
-                grafo.revertirCambios(cambios)
+                # limites_ruleta, contador = [] , 0
+                # for prob in probabilidades:
+                #     contador += prob
+                #     limites_ruleta.append(contador)            
+                # ruleta = random.uniform(0,contador)
+                # for indice, limite in enumerate(limites_ruleta):
+                #     if ruleta <= limite:
+                #         color = colores_disponibles[indice]
+                #         break
+                indice = min(range(len(valores)), key = lambda i : valores[i])
+                color = colores_disponibles[indice]
+                grafo.colorear(grafo.nodos[x], color)
+                break
             except SolucionNoFactible as e:
                 grafo.revertirCambios(e.datos)
-                continue
-            except Exception as ee:
-               print(ee)
-               print(type(ee))
-               raise ee
-        if valor == float('inf'):
+                colores_disponibles.remove(color)
+                probabilidades.pop(indice)
+        
+        if len(colores_disponibles) == 0:
             raise HeuristicaFallida("Ningun color disponible es valido", i)
-        else:
-            a = grafo.colorear(grafo.nodos[x], nuevo_color)
         i += 1
+
+# Variacion Greedy: Para elegir el color del nodo, para cada color disponible, colorea el nodo con dicho color, calcula la funcion de optimizacion f_opt 
+# (que puede ser la funcion objetivo o el incremento de esta para mas eficiencia) y revierte los cambios. Elige el color que menor valor de f_opt devuelva
+# def GreedyColorGraphHeuristic(eleccionNodo, grafo, f_opt, n_asignaciones = float('inf')):
+#     n_it = min( n_asignaciones, len(grafo.nodos_por_color[None]) )
+#     i = 0
+#     while i < n_it and len(grafo.nodos_por_color[None]) > 0:
+#         x = eleccionNodo(grafo)
+#         valor = float('inf')
+#         for color in grafo.colores - grafo.nodos[x].colores_vecinos:
+#         # for color in random.sample(list(colores_disponibles), len(colores_disponibles)//2):  # Tambien es posible tomar un subconjunto aleatorio para aligerar la busqueda, puede empeorar el resultado pero al ser no determinista, diversifica la búsqueda       
+#             try:
+#                 cambios = grafo.colorear(grafo.nodos[x], color)
+#                 nuevo_val = f_opt(grafo, nodo = x, color = color)
+#                 if nuevo_val < valor:
+#                     nuevo_color = color
+#                     valor = nuevo_val
+#                 grafo.revertirCambios(cambios)
+#             except SolucionNoFactible as e:
+#                 grafo.revertirCambios(e.datos)
+#                 continue
+#         if valor == float('inf'):
+#             raise HeuristicaFallida("Ningun color disponible es valido", i)
+#         else:
+#             a = grafo.colorear(grafo.nodos[x], nuevo_color)
+#         i += 1
+
 
 
 def nodoLargestDegree(grafo):
-    return max(grafo.nodos_por_color[None], key=lambda x: grafo.nodos[x].grado())        
+    return max(grafo.nodos_por_color[None], key=lambda x: grafo.grado(x))        
 
 def LargestDegree(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoLargestDegree, grafo, f_obj, n_asignaciones)
@@ -73,14 +113,14 @@ def LeastSaturationDegree(grafo, f_obj, n_asignaciones = float('inf')):
 
 
 def nodoLargestColorDegree(grafo):
-    return max(grafo.nodos_por_color[None], key=lambda x: grafo.nodos[x].coloredDegree(grafo))        
+    return max(grafo.nodos_por_color[None], key=lambda x: grafo.gradoColor(x))        
 
 def LargestColorDegree(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoLargestColorDegree, grafo, f_obj, n_asignaciones)
 
 
 def nodoLargestWeightedDegree(grafo):
-    return max(grafo.nodos_por_color[None], key=lambda x: grafo.nodos[x].grado()*grafo.nodos[x].peso())     
+    return max(grafo.nodos_por_color[None], key=lambda x: grafo.grado(x)*grafo.nodos[x].peso())     
 
 def LargestWeightedDegree(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoLargestWeightedDegree, grafo, f_obj, n_asignaciones)
@@ -99,22 +139,15 @@ def nodoRandom(grafo):
 def Random(grafo, f_obj, n_asignaciones = float('inf')):
     return GraphHeuristic(nodoRandom, grafo, f_obj, n_asignaciones)
 
-"""
-# Heuristica Propia: Ordena segun el numero de restricciones extra, y en caso de empate segun largest enrolment
-def nodoRestriccionesExtra(grafo):
-    # Habria que añadir los de exclusion a los datos del grafo y revisar nombres de exclusive y exclusion y exclusivos y tal
-    for x, nodo in grafo.nodos_por_color[None].items():
-        n_restricciones = 0
-        if x in grafo.coincidence.keys(): n_restricciones += len(grafo.coincidence[x])
-        if x in grafo.after.keys(): n_restricciones += len(grafo.after[x])
-        if x in grafo.before.keys(): n_restricciones += len(grafo.before[x])
-        if x in grafo.exclusion.keys(): n_restricciones += len(grafo.exclusion[x])
-        if x in grafo.exclusivos.keys(): n_restricciones += len(grafo.exclusivos[x])
-    return max(grafo.nodos_por_color[None], key=lambda x: (n_restricciones, grafo.nodos[x].peso()))   
 
-def RestriccionesExtra(grafo, f_obj, n_asignaciones = float('inf')):
-    return GraphHeuristic(nodoRestriccionesExtra, grafo, f_obj, n_asignaciones)
-"""
+# Heuristica Propia: Da prioridad a las heuristicas con restricciones extra que son modelizadas durante la coloracion
+def nodoGradoRestricciones(grafo):
+    return max(grafo.nodos_por_color[None], key=lambda x: grafo.gradoRestricciones(x))
+
+def GradoRestricciones(grafo, f_obj, n_asignaciones = float('inf')):
+    return GraphHeuristic(nodoGradoRestricciones, grafo, f_obj, n_asignaciones)
+
+
 
 # Definicion de los movimientos
     
@@ -144,15 +177,16 @@ def repetirMov(f, x, h, m = 2, repeticiones = 2):
 # Definicion de la Graph-HiperHeuristic (GHH)
 
 class GHH():
-    def __init__(self, grafo, heuristicas, movimientos, f_obj, f_heur = None, e = 2, tenencia = 9, hl_inicial = None):
+    def __init__(self, grafo, heuristicas, movimientos, f_obj, f_pred = None, e = 2, tenencia = 9, hl_inicial = None):
         self.grafo = grafo
         self.f_obj = f_obj
-        self.f_heur = f_obj if f_heur is None else f_heur
+        self.f_pred = f_obj if f_pred is None else f_pred
         self.heuristicas = heuristicas
         self.movimientos = movimientos
         self.e = e
         self.n = ceil(len(grafo.nodos_por_color[None])/e)
         self.tenencia = tenencia
+        self.i, self.t = 0,0
         
         # Si no recibe ninguna lista inicial, generamos una aleatoria
         self.hl_actual = [random.choice(heuristicas) for _ in range(self.n)] if hl_inicial is None else hl_inicial
@@ -175,10 +209,10 @@ class GHH():
         g = self.grafo.copy()
         for i, h in enumerate(hl):
             try:
-                h(g, self.f_heur, self.e)
+                h(g, self.f_pred, self.e)
             except HeuristicaFallida as error:
                 self.fallidas.append(hl[:i+1])
-                print(i*self.e+error.paso_de_error)
+                # print(i*self.e+error.paso_de_error)
                 raise HeuristicaFallida(error.message, i*self.e+error.paso_de_error) from error
                 # Medimos la distancia a la factibilidad en funcion del numero de pasos que tarde la heuristica en no encontrar una solucion factible con el objetivo de alcanzar la factibilidad en vecindarios donde todas las soluciones generen coloraciones infactibles
         return g
@@ -204,7 +238,7 @@ class GHH():
                 g = self.aplicar_hl(hl)
                 val = self.f_obj(g)
                 dist_fact.append(0)
-                if not(hl in self.tabu) or val < self.mejor_val:        # Aplicamos lista tabu y criterio de aspiracion
+                if val < self.mejor_val or not(hl in self.tabu):        # Aplicamos lista tabu y criterio de aspiracion
                     if val < val_prox_hl:
                         prox_hl = hl
                         prox_g = g
@@ -220,6 +254,8 @@ class GHH():
 
 
     def iteracion(self):
+        a = time.time()
+
         vecindario = self.generarVecindario()
         hl, g, val = self.seleccion(vecindario)
         self.hl_actual = hl
@@ -228,13 +264,18 @@ class GHH():
             self.mejor_sol = g
             self.mejor_val = val
         if len(self.tabu) >= self.tenencia: self.tabu.pop(0)
-        self.tabu.append(hl)            
+        self.tabu.append(hl)    
+        
+        self.i += 1
+        tiempo_iteracion = time.time() - a
+        self.t += tiempo_iteracion
+        return tiempo_iteracion
 
     def iterar(self, max_it = None):
         if max_it is None: max_it = 10*len(self.grafo.nodos_por_color[None])
         for i in range(max_it):
-            self.iteracion()
-            print(i, self.mejor_val)
+            t = self.iteracion()
+            if self.i % 100 == 0: print(f"Iteracion {self.i}. Valor obtenido: {self.mejor_val}, Tiempo de iteracion: {t}")
 
 
 

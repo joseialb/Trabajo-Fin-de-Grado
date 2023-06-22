@@ -28,20 +28,10 @@ class Nodo():
     def copy(self):
         return Nodo(self.id, self.tipo, self.objeto, self.color, self.adyacentes.copy(), self.colores_vecinos.copy())
     
-    def grado(self):
-        return len(self.adyacentes)
-    
-    def coloredDegree(self, grafo):
-        s = 0
-        for id2 in self.adyacentes:
-            if grafo.nodos[id2].color is not None: s+=1
-        return s
-    
     def peso(self):
-        try:
+        if self.tipo == "examen":
             s = self.objeto.size
-        except:
-            s = 1
+        else: raise Exception("Se ha pedido el peso de un nodo que no es un examen")
         return s
     
             
@@ -65,6 +55,9 @@ class Grafo():
         self.cap_libre  = kargs.get("cap_libre", {})
         self.duraciones = kargs.get("duraciones", {})
         self.exclusivos = kargs.get("exclusivos", {})
+        
+        self.nodos_por_tam = []
+        self.estudiantes_por_periodo = {i:set() for i in self.periodos}
                       
     def __repr__(self):
         s = "Nodos\n\n"
@@ -88,6 +81,38 @@ class Grafo():
                 if not (nodo2, nodo) in a: a.add( (nodo, nodo2) )
         return a
     
+    # Para representar mejor el grado debido a las diferentes aristas posibles
+    def grado(self, id1):
+        g = 0
+        for id2 in self.nodos[id1].adyacentes:
+            nodo2 = self.nodos[id2]
+            if nodo2.tipo == "examen" or nodo2.tipo == "periodo": g+= len(self.salas)
+            else: g += 1 
+        return g
+    
+    def gradoColor(self, id1):
+        g = 0
+        for id2 in self.nodos[id1].adyacentes - self.nodos_por_color[None]:
+            nodo2 = self.nodos[id2]
+            if nodo2.tipo == "examen": g+= len(self.salas)
+            elif nodo2.tipo == "periodo": g+= len(self.salas)
+            elif nodo2.tipo == "exclusivo":
+                if nodo2.color is not None: g += 1
+            else: g += 1 
+        return g
+    
+    def gradoRestricciones(self, id1, coincidence_visitados = None):
+        extra = 0
+        if id1 in self.exclusivos: extra = len(self.nodos_por_tipo["examen"])
+        if id1 in self.before: extra = len(self.before[id1]) * len(self.colores)//2
+        if id1 in self.after: extra = len(self.after[id1]) * len(self.colores)//2
+        if id1 in self.coincidence:
+            if coincidence_visitados is None: coincidence_visitados = {id1}
+            else: coincidence_visitados.add(id1)
+            for id2 in self.coincidence[id1]: 
+                if not id2 in coincidence_visitados: extra += self.gradoRestricciones(id2, coincidence_visitados)
+        return self.grado(id1) + extra
+    
     def add_nodo(self, nodo):
         self.nodos[nodo.id] = nodo
         self.nodos_por_tipo[nodo.tipo].add(nodo.id)
@@ -106,8 +131,7 @@ class Grafo():
     def add_arista(self, id1, id2):
         nodo1 = self.nodos[id1]
         nodo2 = self.nodos[id2]
-        
-        # Solo se comprueba la factibilidad cuando al menos uno de ellos es de tipo examen, ya que en otro caso ya tendran color asignado y los exclusivos solo se unen a examenes
+        # Solo se comprueba la factibilidad cuando al menos uno de ellos es de tipo examen, ya que en otro caso ya tendran color asignado o son exclusivos, en cuyo caso los exclusivos solo se unen a examenes
         if nodo1.tipo == "examen" or nodo2.tipo == "examen": 
             if nodo1.tipo == "examen" and nodo2.tipo == "examen":
                 # Si ambos estan coloreados, comprobamos que no se pierda factibilidad al introducir la arista
@@ -155,26 +179,6 @@ class Grafo():
         nodo1.adyacentes.add(nodo2.id)
         nodo2.adyacentes.add(nodo1.id)
     
-    # # Posible mejora de eficiencia poniendolo como atributo de cada nodo
-    # def colores_vecinos(self, nodo_id, b = False):
-    #     global t
-    #     a = time.time()
-    #     s = set()
-    #     for id2 in self.nodos[nodo_id].adyacentes:
-    #         nodo2 = self.nodos[id2]
-    #         if nodo2.color is None: continue
-    #         if nodo2.tipo == "examen":
-    #             if b: print(nodo2)
-    #             for r in self.salas: s.add( (nodo2.color[0], r) )
-    #         elif nodo2.tipo == "periodo":
-    #             if b: print(nodo2)
-    #             for r in self.salas: s.add( (nodo2.color, r) )
-    #         else:
-    #             if b: print(nodo2, nodo2.tipo)
-    #             s.add(nodo2.color)
-    #     t += time.time()-a
-    #     return s
-    
     # Solo se va a colorear nodos de tipo examen
     def colorear(self, nodo, color):
         assert nodo.tipo == "examen", "Se ha intentado colorear un nodo que no es de tipo examen"
@@ -204,7 +208,8 @@ class Grafo():
                 self.nodos_por_periodo[p].add(nodo.id)
                 self.nodos_por_sala[r_anterior].remove(nodo.id)
                 self.nodos_por_sala[r].add(nodo.id)
-                
+                self.estudiantes_por_periodo[p].update(nodo.objeto.estudiantes)  # Esto se puede revertir ya que cada estudiante solo puede estar una vez en cada periodo
+                if p_anterior is not None: self.estudiantes_por_periodo[p_anterior].difference_update(nodo.objeto.estudiantes)
                 # Se añade el color a los colores de los adyacentes
                 for id2 in nodo.adyacentes:
                     nodo2 = self.nodos[id2]
@@ -263,19 +268,22 @@ class Grafo():
                             # cambios[(p,)] = self.nodos[(p,)].copy() # En principio no hace falta
                             self.add_arista(id2, (p,))
                             # add_arista se encarga de añadir los colores y revisar la factibilidad
-                
+        
                 # Restricciones de capacidad
                 if self.cap_libre[color] < nodo.peso():
                     print("Esto no deberia ocurrir NUNCA", nodo, nodo.peso(), self.cap_libre[color])
                     raise SolucionNoFactible("El color indicado supera la capacidad de la sala")    
                 self.cap_libre[color] -= nodo.peso()
                 bool_capacidad = True
-                for id2 in self.nodos_por_tipo["examen"]:                                                           # Mejora de eficiencia si guardamos examenes ordenados por capacidad
+                for id2 in self.nodos_por_tam:                                                           # Mejora de eficiencia si guardamos examenes ordenados por capacidad
                     nodo2 = self.nodos[id2]
-                    if nodo2.color is None and (nodo2.peso() > self.cap_libre[color]):
-                        if not id2 in cambios.keys(): cambios[id2] = self.nodos[id2].copy()
-                        self.add_arista(id2, color)
-                        # add_arista se encarga de añadir los colores y revisar la factibilidad
+                    if nodo2.peso() > self.cap_libre[color]:
+                        if nodo2.color is None:
+                            if not id2 in cambios.keys(): cambios[id2] = self.nodos[id2].copy()
+                            self.add_arista(id2, color)
+                            # add_arista se encarga de añadir los colores y revisar la factibilidad
+                    else:
+                        break                
                 
                 # Actualizacion de las duraciones
                 if not color in self.duraciones.keys(): self.duraciones[color] = {}
@@ -287,6 +295,7 @@ class Grafo():
         except SolucionNoFactible as e:
             # Si se lanza una excepcion, se le añaden los datos cambiados para permitir revertir y no alterar el grafo
             raise SolucionNoFactible(e.message,  (nodo, color, color_anterior, cambios, bool_color, bool_capacidad, bool_duraciones))
+
     
     # Se revierten los cambios realizados (permite ahorrar copias y por tanto ganar eficiencia)
     def revertirCambios(self, datos):
@@ -304,12 +313,16 @@ class Grafo():
             self.nodos_por_periodo[p_anterior].add(nodo.id)
             self.nodos_por_sala[r].remove(nodo.id)
             self.nodos_por_sala[r_anterior].add(nodo.id)
+            self.estudiantes_por_periodo[p].difference_update(nodo.objeto.estudiantes)
+            if p_anterior is not None: self.estudiantes_por_periodo[p_anterior].update(nodo.objeto.estudiantes)
         for id2, nodoCopia in cambios.items():
             self.nodos[id2] = nodoCopia
-            
+
+
     def copy(self):
         grafoCopia = Grafo(self.periodos, self.salas, before = self.before, after = self.after, coincidence = self.coincidence,
                            cap_libre = self.cap_libre.copy(), duraciones = copy.deepcopy(self.duraciones), exclusivos = self.exclusivos)
+        grafoCopia.nodos_por_tam = self.nodos_por_tam
         for nodo in self.nodos.values():
             grafoCopia.add_nodo(nodo.copy())
         return grafoCopia
@@ -395,7 +408,7 @@ class Problema():
                         self.idsPeriodos.add(i)
                         if not(p.dia) in self.dias.keys():
                             self.dias[p.dia] = []
-                        self.dias[p.dia].append(i)                                              # Lista o conjunto
+                        self.dias[p.dia].append(i)                                             
                         
                 elif (line[:7] == "[Rooms:"):
                     self.salas = []
@@ -455,6 +468,7 @@ class Problema():
         examenes_por_tam = sorted(self.examenes, key = lambda e: (e.size,e.id) , reverse = True)[:self.FRONTLOAD[0]]
         self.examenes_grandes = {ex.id for ex in examenes_por_tam}
     
+    
     def generarGrafo(self):
         self.grafo = Grafo(self.idsPeriodos, self.idsSalas, before = self.before, after = self.after, coincidence = self.coincidence,
                            cap_libre = {(p,r) : self.capacidades[r] for p in self.idsPeriodos for r in self.idsSalas})
@@ -507,31 +521,34 @@ class Problema():
             for r in self.salas:
                 if e.size > r.size:
                     for p in self.periodos: self.grafo.add_arista( e.id, (p.id, r.id) )
+        
+        self.grafo.nodos_por_tam = sorted([ eid  for eid in self.grafo.nodos_por_tipo["examen"]] , key = lambda i: self.grafo.nodos[i].peso(), reverse = True)
+
 
     # La función que determina el valor completo de la solución aportada por un grafo
     def f_objGrafo(self, grafo, **kargs):
         dia = (None,[])
         spread = []
         front = max(self.idsPeriodos) - self.FRONTLOAD[1]
-        estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
+        # estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
         C2R, C2D, CPS, CFL, CP, CR, CNM = 0, 0, 0, 0, 0, 0, 0
         
         for p in self.periodos:
-            estudiantes_por_periodo[p.id] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p.id]])
+            # estudiantes_por_periodo[p.id] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p.id]])
             # PERIODPENALTY
             CP += len(grafo.nodos_por_periodo[p.id]) * self.periodos[p.id].penalizacion
             # TWOINADAY y TWOINAROW (son excluyentes, de ahi el [:-1])
             if p.dia == dia[0]:
                 if dia[1] != []:
-                    C2R += len(estudiantes_por_periodo[p.id] & estudiantes_por_periodo[dia[1][-1].id])
+                    C2R += len(grafo.estudiantes_por_periodo[p.id] & grafo.estudiantes_por_periodo[dia[1][-1].id])
                 for p2 in dia[1][:-1]:
-                    C2D += len(estudiantes_por_periodo[p.id] & estudiantes_por_periodo[p2.id])
+                    C2D += len(grafo.estudiantes_por_periodo[p.id] & grafo.estudiantes_por_periodo[p2.id])
                 dia[1].append(p)
             else:
                 dia = (p.dia, [p])
             # PERIODSPREAD
             for p2 in spread:
-                CPS += len(estudiantes_por_periodo[p.id] & estudiantes_por_periodo[p2.id])
+                CPS += len(grafo.estudiantes_por_periodo[p.id] & grafo.estudiantes_por_periodo[p2.id])
             if len(spread)>= self.gap:
                 spread.pop(0)
             spread.append(p)
@@ -549,14 +566,57 @@ class Problema():
             
         return C2R*self.TWOINAROW + C2D*self.TWOINADAY + CPS*self.PERIODSPREAD + CFL*self.FRONTLOAD[2] + CNM*self.NONMIXEDDURATIONS + CP + CR
     
-    # Calcula el incremento que ha supuesto añadir el color a un único nodo de forma mas eficiente que la función objetivo (la cual debe tener en cuenta todos los nodos)
-    def inc_obj(self, grafo, nodo, color):
+    
+    # # Calcula el incremento de la funcion objetivo que ha supuesto colorear un único nodo de forma mas eficiente que la función objetivo (la cual debe tener en cuenta todos los nodos)
+    # def inc_obj(self, grafo, nodo, color):
+        
+    #     global t2
+    #     a = time.time()
+        
+    #     if color is None: return 0
+    #     pid = color[0]
+    #     rid = color[1]
+    #     dia = set(self.dias[self.periodos[pid].dia]) - {pid}
+    #     spread = set(range(pid-self.gap, pid+self.gap+1)) & self.idsPeriodos - {pid}
+    #     # estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
+    #     C2R, C2D, CPS, CFL = 0, 0, 0, 0
+        
+    #     # PERIODPENALTY
+    #     CP = self.periodos[pid].penalizacion
+        
+    #     # FRONTLOAD
+    #     if (color[0] > max(self.idsPeriodos) - self.FRONTLOAD[1]) and (grafo.nodos[nodo].id in self.examenes_grandes): CFL = 1
+        
+    #     for p2 in dia | spread:
+    #         # estudiantes_por_periodo[p2] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p2]])
+    #         # TWOINADAY y TWOINAROW
+    #         if p2 in dia:
+    #             if (p2 == pid -1) or (p2 == pid +1):  C2R += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
+    #             else: C2D += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
+    #         # PERIODSPREAD
+    #         if p2 in spread: CPS += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
+
+    #     # ROOMPENALTY
+    #     CR = self.salas[rid].penalizacion
+        
+    #     # NONMIXEDPENALTY    
+    #     if len([x for x in grafo.duraciones[color].values() if x > 0]) > 1 and grafo.duraciones[color][grafo.nodos[nodo].objeto.length] == 1: CNM = 1
+    #     else: CNM = 0
+        
+        
+    #     t2 += time.time()-a
+        
+    #     return C2R*self.TWOINAROW + C2D*self.TWOINADAY + CPS*self.PERIODSPREAD + CFL*self.FRONTLOAD[2] + CNM*self.NONMIXEDDURATIONS + CP + CR 
+    
+    
+    # Calcula el incremento de la funcion objetivo que supondrá colorear un único nodo sin necesidad de colorearlo
+    def prediccion_inc_obj(self, grafo, nodo, color):
         if color is None: return 0
         pid = color[0]
         rid = color[1]
         dia = set(self.dias[self.periodos[pid].dia]) - {pid}
         spread = set(range(pid-self.gap, pid+self.gap+1)) & self.idsPeriodos - {pid}
-        estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
+        # estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
         C2R, C2D, CPS, CFL = 0, 0, 0, 0
         
         # PERIODPENALTY
@@ -566,22 +626,29 @@ class Problema():
         if (color[0] > max(self.idsPeriodos) - self.FRONTLOAD[1]) and (grafo.nodos[nodo].id in self.examenes_grandes): CFL = 1
         
         for p2 in dia | spread:
-            estudiantes_por_periodo[p2] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p2]])
+            # estudiantes_por_periodo[p2] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p2]])
             # TWOINADAY y TWOINAROW
             if p2 in dia:
-                if (p2 == pid -1) or (p2 == pid +1):  C2R += len(self.examenes[nodo].estudiantes & estudiantes_por_periodo[p2])
-                else: C2D += len(self.examenes[nodo].estudiantes & estudiantes_por_periodo[p2])
+                if (p2 == pid -1) or (p2 == pid +1):  C2R += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
+                else: C2D += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
             # PERIODSPREAD
-            if p2 in spread: CPS += len(self.examenes[nodo].estudiantes & estudiantes_por_periodo[p2])
+            if p2 in spread: CPS += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
 
         # ROOMPENALTY
         CR = self.salas[rid].penalizacion
         
         # NONMIXEDPENALTY    
-        if len([x for x in grafo.duraciones[color].values() if x > 0]) > 1 and grafo.duraciones[color][grafo.nodos[nodo].objeto.length] == 1: CNM = 1
-        else: CNM = 0
-        
+        duracion_nodo = self.examenes[nodo].length
+        CNM = 0
+        if (color in grafo.duraciones.keys()):
+            if not(duracion_nodo in grafo.duraciones[color].keys()) or (grafo.duraciones[color][duracion_nodo] == 0):
+                # Si el nodo del examen es el primero de esa duracion y hay al menos otro examen en el periodo y sala con otra duracion distinta
+                for duracion, repeticiones in grafo.duraciones[color].items():
+                    if repeticiones > 0 and duracion != duracion_nodo:  # Realmente siempre se va a cumplir que duracion != duracion_ex por el if anterior
+                        CNM = 1
+                        break
         return C2R*self.TWOINAROW + C2D*self.TWOINADAY + CPS*self.PERIODSPREAD + CFL*self.FRONTLOAD[2] + CNM*self.NONMIXEDDURATIONS + CP + CR 
+    
 
     # Modifica los datos del problema a través de los datos del grafo
     def asignaciones(self, grafo):        
@@ -593,6 +660,7 @@ class Problema():
         for e in self.examenes:
             e.horario = grafo.nodos[e.id].color[0]
             e.sala = grafo.nodos[e.id].color[1]
+    
     
     # Calcula el valor de la funcion objetivo solo con los datos del problema, sin depender del grafo
     def f_obj(self):
@@ -635,69 +703,91 @@ class Problema():
     
 
 
-def generarSolucion(dataset, max_it = 100):
-    P = Problema(dataset)
-    
-    # Parámetros de la hiperheurística
-    e = 2
-    tenencia = 15
-    n = ceil( len(P.examenes)/e )
-    porcentaje = 10     # Considerar un movimiento que cambie el porcentaje% de los elementos de la lista
-    movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, m, 2) for m in [2, ceil(n*porcentaje/100)]]
-    heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
-    hl_inicial = [GHH.LeastSaturationDegree] * n
-    
-    # Inicialización
-    P.generarGrafo()
-    a = time.time()
-    HH = GHH.GHH(P.grafo, heuristicas, movimientos, P.f_objGrafo, P.inc_obj, e, tenencia, hl_inicial)
-    print(time.time()-a)
-    
-    a = time.time()
-    # HH.iteracion()
-    print(time.time()-a)
-    
-    # Iteraciones
-    # HH.iterar(max_it)
-    P.asignaciones(HH.mejor_sol)
-    
-    valorFinal = P.f_obj()
-    print(f"Valor obtenido: {valorFinal}")
-    
-    # Guardar resultados
-    with open(dataset[:-5]+".sol", "w") as file:
-        for examen in P.examenes:
-            file.write(f"{examen.horario}, {examen.sala}\n")
-        file.write(f"\nTotal Value: {valorFinal}")
+def generarSolucion(entrada, salida, max_it = 100):
+    try:
+        P = Problema(entrada)
+        
+        # Parámetros de la hiperheurística
+        e = 2
+        tenencia = 9
+        n = ceil( len(P.examenes)/e )
+        movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, 2, 3) ]
+        heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.GradoRestricciones, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
+        hl_inicial = [GHH.LeastSaturationDegree] * n
+        # hl_inicial = [GHH.LargestColorDegree] * n
+        # hl_inicial = None
+        
+        # Inicialización
+        P.generarGrafo()
+        HH = GHH.GHH(P.grafo, heuristicas, movimientos, P.f_objGrafo, P.prediccion_inc_obj, e, tenencia, hl_inicial)
+        
+        # Iteraciones
+        a = time.time()
+        HH.iterar(max_it)
+        print("Tiempo Total", time.time()-a)
+        
+        # Calculo de la funcion objetivo y asignaciones del grafo al problema
+        P.asignaciones(HH.mejor_sol)    
+        valorFinal = P.f_obj()
+        # print(f"Valor obtenido: {valorFinal}")
+        
+        # Guardar resultados
+        with open(salida, "w") as file:
+            for examen in P.examenes:
+                file.write(f"{examen.horario}, {examen.sala}\n")
+            file.write(f"\nValor Total: {valorFinal}")
+            file.write(f"\Heuristica inicial: LargestDegree")
+            file.write(f"\nIteraciones: {HH.i}")
+            file.write(f"\nSeleccion de color: Ruleta")
+            
+                       
+            file.write("\n\nNumero de apariciones de cada heuristica:\n")
+            nombre_heuristicas =["LargestDegree:         ",
+                                 "LeastSaturationDegree: ",
+                                 "LargestColorDegree:    ",
+                                 "GradoRestricciones:    ",
+                                 "LargestWeightedDegree: ",
+                                 "LargestEnrollment:     ",
+                                 "Random:                "]
+            
+            for i, h in enumerate(heuristicas):
+                apariciones = HH.mejor_h.count(h)
+                file.write(f"{nombre_heuristicas[i]}    {apariciones:}  ({100*apariciones/len(HH.mejor_h):.2f}%)\n")
+        
+    except Exception as e:
+        print(e)
+        raise HiperHeuristicaFallida("Error raro", HH) from e
 
+
+
+class HiperHeuristicaFallida(Exception):
+    def __init__(self, msg, HH):
+        self.message = msg
+        self.HH = HH
+        super().__init__(self.message)
+    def __repr__(self):
+        return self.message
 
 
 if __name__ == "__main__":
     # Lectura de los datos del problema
-    # datasets =[f"InstanciasITC2007/set{i}.exam" for i in range(1,13)]
-    datasets =[f"InstanciasITC2007/set{i}.exam" for i in range(1,2)]
-    P = Problema(datasets[0])
-    #     for d in datasets:
-    #         a = time.time()
-    #         generarSolucion(d, 10)
-    #         print(time.time()-a)
-    
-    
+    datasets = [f"InstanciasITC2007/set{i}.exam" for i in range(1,13)]
+    salidas  = [f"set{i}SaturationBest.sol" for i in range(1,13)] 
+    HHs = []
     # Parámetros de la hiperheurística
-    e = 2
-    tenencia = 15
-    n = ceil( len(P.examenes)/e )
-    porcentaje = 10     # Considerar un movimiento que cambie el porcentaje% de los elementos de la lista
-    movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, m, 2) for m in [2, ceil(n*porcentaje/100)]]
-    heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
-    hl_inicial = [GHH.LeastSaturationDegree] * n
     
-    # Inicialización
-    P.generarGrafo()
-    a = time.time()
-    HH = GHH.GHH(P.grafo, heuristicas, movimientos, P.f_objGrafo, P.inc_obj, e, tenencia, hl_inicial)
-    print(time.time()-a)
-    
+    for i in range(0,12):
+        try:
+            generarSolucion(datasets[i], salidas[i], 500)
+            print("Finalizado datos de ", i+1)
+        except HiperHeuristicaFallida as e:
+            HHs.append(e.HH)
+            print(e)
+            print("Algo ha pasao en el dataset ", i+1)
+            continue
+        
+            
+        
     
     
     
