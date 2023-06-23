@@ -64,7 +64,8 @@ def GraphHeuristic(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
             except SolucionNoFactible as e:
                 grafo.revertirCambios(e.datos)
                 colores_disponibles.remove(color)
-                probabilidades.pop(indice)
+                # probabilidades.pop(indice)
+                valores.pop(indice)
         
         if len(colores_disponibles) == 0:
             raise HeuristicaFallida("Ningun color disponible es valido", i)

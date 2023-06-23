@@ -708,10 +708,11 @@ def generarSolucion(entrada, salida, max_it = 100):
         P = Problema(entrada)
         
         # Parámetros de la hiperheurística
-        e = 2
+        e = 1
         tenencia = 9
         n = ceil( len(P.examenes)/e )
-        movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, 2, 3) ]
+        # movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, 2, 3) ]
+        movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, m, 1) for m in [2,5,10] ]
         heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.GradoRestricciones, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
         hl_inicial = [GHH.LeastSaturationDegree] * n
         # hl_inicial = [GHH.LargestColorDegree] * n
@@ -729,7 +730,7 @@ def generarSolucion(entrada, salida, max_it = 100):
         # Calculo de la funcion objetivo y asignaciones del grafo al problema
         P.asignaciones(HH.mejor_sol)    
         valorFinal = P.f_obj()
-        # print(f"Valor obtenido: {valorFinal}")
+        print(f"Valor obtenido: {valorFinal}")
         
         # Guardar resultados
         with open(salida, "w") as file:
@@ -772,11 +773,12 @@ class HiperHeuristicaFallida(Exception):
 if __name__ == "__main__":
     # Lectura de los datos del problema
     datasets = [f"InstanciasITC2007/set{i}.exam" for i in range(1,13)]
-    salidas  = [f"set{i}SaturationBest.sol" for i in range(1,13)] 
+    salidas  = [f"SolucionesITC2007/set{i}/FinalSaturation500.sol" for i in range(1,13)] 
     HHs = []
     # Parámetros de la hiperheurística
     
     for i in range(0,12):
+        print(datasets[i], salidas[i])
         try:
             generarSolucion(datasets[i], salidas[i], 500)
             print("Finalizado datos de ", i+1)
