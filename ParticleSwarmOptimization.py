@@ -101,37 +101,29 @@ from numpy import cos, sqrt, exp, e, pi
 
 # Definicion de la función objetivo
 
-# Función de Ackley 
-def Ackley(a,b,c,x):
-    s1,s2 = 0,0
+# Función de Rastrigin 
+def Rastrigin(x):
+    s = 0
     for i in x:
-        s1 += i**2
-        s2 +=  cos(2*pi*i)
-    return e + a - a*exp(-b*sqrt(s1/len(x))) - exp(c*s2/len(x))
+        s += i**2 +10 -10*cos(2*pi*i)
+    return s
 
-f = lambda x: Ackley(20, 0.2, 2, x)
 # Esta funcion tiene un minimo absoluto en x = [0,0,...,0] con valor 0
 
 
 # Definicion del espacio de búsqueda
 
 dim = 5
-limInf = np.array([-100] * dim)
-limSup = np.array([100] * dim)
+limInf = np.array([-5.12] * dim)
+limSup = np.array([5] * dim)
 
 
 # Definicion de la metaheuristica:
-n_part = 1000
+n_part = 100
 coef = [0.2 , 0.7, 0.7]
-p = PSO(limInf, limSup, n_part, f, coef)
+p = PSO(limInf, limSup, n_part, Rastrigin, coef)
 
 p.iterar(100)
-
-CAMBIARRRRRR
-print(f"La mejor solucion encontrada para el problema de la mochila es {TS.mejor_sol}")
-print(f"Con valor: {-TS.mejor_val}")
-print(f"\nLa solucion optima es: [1,1,1,1,0,0,0,1]")
-print(f"Con valor: {43}")
 
 """
 

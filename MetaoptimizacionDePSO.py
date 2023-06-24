@@ -35,12 +35,9 @@ class Cromosoma():
         w , cog, soc, n_part = self.genes        
         pso_gen = pso.PSO(problema.limInf, problema.limSup, n_part, problema.f, [w, cog, soc])
         t1 = time.time()
-        i = 0
         # Realiza todas las iteraciones que tenga tiempo a realizar
         while time.time() - t1 < self.ga.tiempo_limite:
             pso_gen.iteracion()
-            i += 1
-        # print(i, self.genes[3], self.genes[:3])
         self.valores[problema.nombre] = pso_gen.mejor_valor
 
    
@@ -114,7 +111,6 @@ class GA:
     def evolucionar(self, max_it = 100):
         for i in range(max_it):
             self.evolucion()
-            print(i, self.mejor)
     
     
     
@@ -254,25 +250,54 @@ class Step(Problema):
 
 # Aplicacion de la metaoptimización
 if __name__ == "__main__":
-    
     # Definicion del conjunto de entrenamiento
     dim = 3
+    t = 0.1
     entrenamiento = [Ackley(dim), Griewank(dim),
-                     Rastrigin(dim), Rosenbrock(dim),
-                     Schwefel1_2(dim), Schwefel2_21(dim),
+                     Rosenbrock(dim), Schwefel1_2(dim),
                      Schwefel2_22(dim), Step(dim)]
+      
+    for i in range(10):
+        # Definicion de la hiperheuristica metaoptimizadora
+        ga = GA(50, 3, 3, 0.2, entrenamiento, t)
+        ga.evolucionar(50)
+        w , cog, soc, n_part = ga.mejor.genes
     
-    # Definicion de la hiperheuristica metaoptimizadora
-    ga = GA(50, 3, 3, 0.2, entrenamiento, 0.1)
-    ga.evolucionar(50)
-
-
+        print(f"Entrenamiento {i+1} completado")
+        print(f"Coeficientes {(w, cog, soc)}, Numero de Particulas: {n_part}")
+        
+        pso1_valores = []
+        pso2_valores = []
+        for j in range(50):
+            problema = Rastrigin(dim)
+            pso1 = pso.PSO(problema.limInf, problema.limSup, n_part, problema.f, [w, cog, soc])
+            t1 = time.time()
+            i1 = 0
+            while time.time() - t1 < t:
+                pso1.iteracion()
+                i1 += 1
+            pso1_valores.append((i1, pso1.mejor_valor))
             
-            
-            
-            
-            
-            
+            problema = Schwefel2_21(dim)
+            pso2 = pso.PSO(problema.limInf, problema.limSup, n_part, problema.f, [w, cog, soc])
+            t2 = time.time()
+            i2 = 0
+            while time.time() - t2 < t:
+                pso2.iteracion()
+                i2 += 1
+            pso2_valores.append((i2, pso2.mejor_valor))
+        
+        media_i1 = sum( [x[0] for x in pso1_valores] )/50
+        media_i2 = sum( [x[0] for x in pso2_valores] )/50
+        media_pso1 = sum( [x[1] for x in pso1_valores] )/50
+        media_pso2 = sum( [x[1] for x in pso2_valores] )/50       
+         
+        with open("Coeficientes.txt", "a") as f:
+            f.write(f"{dim}; {n_part}; {w}; {cog}; {soc}; {(media_i1, media_pso1)}; {(media_i2, media_pso2)}\n")
+        
+    
+                
+                
             
             
             

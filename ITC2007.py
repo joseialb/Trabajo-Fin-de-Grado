@@ -737,7 +737,7 @@ def generarSolucion(entrada, salida, max_it = 100):
             for examen in P.examenes:
                 file.write(f"{examen.horario}, {examen.sala}\n")
             file.write(f"\nValor Total: {valorFinal}")
-            file.write(f"\Heuristica inicial: LargestDegree")
+            file.write(f"\nHeuristica inicial: LargestDegree")
             file.write(f"\nIteraciones: {HH.i}")
             file.write(f"\nSeleccion de color: Ruleta")
             
@@ -757,7 +757,7 @@ def generarSolucion(entrada, salida, max_it = 100):
         
     except Exception as e:
         print(e)
-        raise HiperHeuristicaFallida("Error raro", HH) from e
+        raise HiperHeuristicaFallida("No se ha encontrado ninguna solución factible", HH) from e
 
 
 
