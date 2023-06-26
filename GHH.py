@@ -30,8 +30,7 @@ def prefijoEnFallidas(hl, fallidas, e):
 
 # Definicion de las heuristicas constructivas para grafos
 
-# Version predictiva con ruleta: Para cada color, predice el incremento de la funcion objetivo que va a generar colorear el nodo x y en base a esto le asigna una probabilidad
-# inversa a dicho valor. Posteriormente aplica la selección por ruleta e intenta colorear el nodo de dicho color. Si no es factible, vuelve a seleccionar otro color hasta que no queden
+# Version predictiva, se elige el color que menos añade a la funcion objetivo
 def GraphHeuristic(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
     n_it = min( n_asignaciones, len(grafo.nodos_por_color[None]) )
     i = 0
@@ -39,24 +38,12 @@ def GraphHeuristic(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
         x = eleccionNodo(grafo)
         valor = float('inf')
         colores_disponibles = list(grafo.colores - grafo.nodos[x].colores_vecinos)
-        # probabilidades = []
-        # for color in colores_disponibles:
-        #     probabilidades.append(10*exp(-2*f_pred(grafo, nodo = x, color = color)))
         valores = []
         for color in colores_disponibles:
             valores.append(f_pred(grafo, nodo = x, color = color))
         
         while len(colores_disponibles) > 0:
             try:
-                # limites_ruleta, contador = [] , 0
-                # for prob in probabilidades:
-                #     contador += prob
-                #     limites_ruleta.append(contador)            
-                # ruleta = random.uniform(0,contador)
-                # for indice, limite in enumerate(limites_ruleta):
-                #     if ruleta <= limite:
-                #         color = colores_disponibles[indice]
-                #         break
                 indice = min(range(len(valores)), key = lambda i : valores[i])
                 color = colores_disponibles[indice]
                 grafo.colorear(grafo.nodos[x], color)
@@ -64,16 +51,52 @@ def GraphHeuristic(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
             except SolucionNoFactible as e:
                 grafo.revertirCambios(e.datos)
                 colores_disponibles.remove(color)
-                # probabilidades.pop(indice)
                 valores.pop(indice)
         
         if len(colores_disponibles) == 0:
             raise HeuristicaFallida("Ningun color disponible es valido", i)
         i += 1
 
-# Variacion Greedy: Para elegir el color del nodo, para cada color disponible, colorea el nodo con dicho color, calcula la funcion de optimizacion f_opt 
+
+# Version predictiva con ruleta: Para cada color, predice el incremento de la funcion objetivo que va a generar colorear el nodo x y en base a esto le asigna una probabilidad
+# inversa a dicho valor. Posteriormente aplica la selección por ruleta e intenta colorear el nodo de dicho color. Si no es factible, vuelve a seleccionar otro color hasta que no queden
+def GraphHeuristicRuleta(eleccionNodo, grafo, f_pred, n_asignaciones = float('inf')):
+    n_it = min( n_asignaciones, len(grafo.nodos_por_color[None]) )
+    i = 0
+    while i < n_it and len(grafo.nodos_por_color[None]) > 0:
+        x = eleccionNodo(grafo)
+        valor = float('inf')
+        colores_disponibles = list(grafo.colores - grafo.nodos[x].colores_vecinos)
+        probabilidades = []
+        for color in colores_disponibles:
+            probabilidades.append(10*exp(-2*f_pred(grafo, nodo = x, color = color)))
+        
+        while len(colores_disponibles) > 0:
+            try:
+                limites_ruleta, contador = [] , 0
+                for prob in probabilidades:
+                    contador += prob
+                    limites_ruleta.append(contador)            
+                ruleta = random.uniform(0,contador)
+                for indice, limite in enumerate(limites_ruleta):
+                    if ruleta <= limite:
+                        color = colores_disponibles[indice]
+                        break
+                grafo.colorear(grafo.nodos[x], color)
+                break
+            except SolucionNoFactible as e:
+                grafo.revertirCambios(e.datos)
+                colores_disponibles.remove(color)
+                probabilidades.pop(indice)
+        
+        if len(colores_disponibles) == 0:
+            raise HeuristicaFallida("Ningun color disponible es valido", i)
+        i += 1
+        
+
+# Variacion sin prediccion: Para elegir el color del nodo, para cada color disponible, colorea el nodo con dicho color, calcula la funcion de optimizacion f_opt 
 # (que puede ser la funcion objetivo o el incremento de esta para mas eficiencia) y revierte los cambios. Elige el color que menor valor de f_opt devuelva
-# def GreedyColorGraphHeuristic(eleccionNodo, grafo, f_opt, n_asignaciones = float('inf')):
+# def ColorGraphHeuristicSinPrediccion(eleccionNodo, grafo, f_opt, n_asignaciones = float('inf')):
 #     n_it = min( n_asignaciones, len(grafo.nodos_por_color[None]) )
 #     i = 0
 #     while i < n_it and len(grafo.nodos_por_color[None]) > 0:

@@ -275,7 +275,7 @@ class Grafo():
                     raise SolucionNoFactible("El color indicado supera la capacidad de la sala")    
                 self.cap_libre[color] -= nodo.peso()
                 bool_capacidad = True
-                for id2 in self.nodos_por_tam:                                                           # Mejora de eficiencia si guardamos examenes ordenados por capacidad
+                for id2 in self.nodos_por_tam:
                     nodo2 = self.nodos[id2]
                     if nodo2.peso() > self.cap_libre[color]:
                         if nodo2.color is None:
@@ -569,24 +569,17 @@ class Problema():
     
     # # Calcula el incremento de la funcion objetivo que ha supuesto colorear un único nodo de forma mas eficiente que la función objetivo (la cual debe tener en cuenta todos los nodos)
     # def inc_obj(self, grafo, nodo, color):
-        
-    #     global t2
-    #     a = time.time()
-        
     #     if color is None: return 0
     #     pid = color[0]
     #     rid = color[1]
     #     dia = set(self.dias[self.periodos[pid].dia]) - {pid}
     #     spread = set(range(pid-self.gap, pid+self.gap+1)) & self.idsPeriodos - {pid}
     #     # estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
-    #     C2R, C2D, CPS, CFL = 0, 0, 0, 0
-        
+    #     C2R, C2D, CPS, CFL = 0, 0, 0, 0  
     #     # PERIODPENALTY
     #     CP = self.periodos[pid].penalizacion
-        
     #     # FRONTLOAD
     #     if (color[0] > max(self.idsPeriodos) - self.FRONTLOAD[1]) and (grafo.nodos[nodo].id in self.examenes_grandes): CFL = 1
-        
     #     for p2 in dia | spread:
     #         # estudiantes_por_periodo[p2] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p2]])
     #         # TWOINADAY y TWOINAROW
@@ -595,17 +588,11 @@ class Problema():
     #             else: C2D += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
     #         # PERIODSPREAD
     #         if p2 in spread: CPS += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
-
     #     # ROOMPENALTY
-    #     CR = self.salas[rid].penalizacion
-        
+    #     CR = self.salas[rid].penalizacion   
     #     # NONMIXEDPENALTY    
     #     if len([x for x in grafo.duraciones[color].values() if x > 0]) > 1 and grafo.duraciones[color][grafo.nodos[nodo].objeto.length] == 1: CNM = 1
-    #     else: CNM = 0
-        
-        
-    #     t2 += time.time()-a
-        
+    #     else: CNM = 0        
     #     return C2R*self.TWOINAROW + C2D*self.TWOINADAY + CPS*self.PERIODSPREAD + CFL*self.FRONTLOAD[2] + CNM*self.NONMIXEDDURATIONS + CP + CR 
     
     
@@ -708,15 +695,17 @@ def generarSolucion(entrada, salida, max_it = 100):
         P = Problema(entrada)
         
         # Parámetros de la hiperheurística
-        e = 1
+        e = 2
         tenencia = 9
         n = ceil( len(P.examenes)/e )
-        # movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, 2, 3) ]
         movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, m, 1) for m in [2,5,10] ]
         heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.GradoRestricciones, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
-        hl_inicial = [GHH.LeastSaturationDegree] * n
-        # hl_inicial = [GHH.LargestColorDegree] * n
-        # hl_inicial = None
+        hl_inicial, str_init = [GHH.LeastSaturationDegree] * n , "Saturation"
+        # hl_inicial, str_init = [GHH.LargestColorDegree] * n , "Colored"
+        # hl_inicial, str_init = None , "ListaAleatoria"
+        
+        ruleta = False
+        # ruleta = True        
         
         # Inicialización
         P.generarGrafo()
@@ -733,15 +722,15 @@ def generarSolucion(entrada, salida, max_it = 100):
         print(f"Valor obtenido: {valorFinal}")
         
         # Guardar resultados
+        salida += f"{int(valorFinal)}{str_init}{max_it}.sol"
         with open(salida, "w") as file:
-            for examen in P.examenes:
-                file.write(f"{examen.horario}, {examen.sala}\n")
-            file.write(f"\nValor Total: {valorFinal}")
-            file.write(f"\nHeuristica inicial: LargestDegree")
+            file.write(f"Valor Total: {valorFinal}")
+            file.write(f"\nHeuristica inicial: {str_init}")
             file.write(f"\nIteraciones: {HH.i}")
-            file.write(f"\nSeleccion de color: Ruleta")
             
-                       
+            if ruleta: file.write(f"\nSeleccion de color: Ruleta")
+            else: file.write(f"\nSeleccion de color: Mejor Color")
+                                   
             file.write("\n\nNumero de apariciones de cada heuristica:\n")
             nombre_heuristicas =["LargestDegree:         ",
                                  "LeastSaturationDegree: ",
@@ -750,11 +739,19 @@ def generarSolucion(entrada, salida, max_it = 100):
                                  "LargestWeightedDegree: ",
                                  "LargestEnrollment:     ",
                                  "Random:                "]
-            
+                
             for i, h in enumerate(heuristicas):
                 apariciones = HH.mejor_h.count(h)
                 file.write(f"{nombre_heuristicas[i]}    {apariciones:}  ({100*apariciones/len(HH.mejor_h):.2f}%)\n")
-        
+            
+            file.write(f"\n\nSolucion obtenida:\n")
+            for examen in P.examenes:
+                file.write(f"{examen.horario}, {examen.sala}\n")
+            
+            file.write(f"\n\nLista de heuristicas obtenida:\n")
+            for h in HH.mejor_h:
+                file.write(nombre_heuristicas[heuristicas.index(h)])
+                file.write("\n")
     except Exception as e:
         print(e)
         raise HiperHeuristicaFallida("No se ha encontrado ninguna solución factible", HH) from e
@@ -773,7 +770,7 @@ class HiperHeuristicaFallida(Exception):
 if __name__ == "__main__":
     # Lectura de los datos del problema
     datasets = [f"InstanciasITC2007/set{i}.exam" for i in range(1,13)]
-    salidas  = [f"SolucionesITC2007/set{i}/FinalSaturation500.sol" for i in range(1,13)] 
+    salidas  = [f"SolucionesITC2007/set{i}/" for i in range(1,13)]
     HHs = []
     # Parámetros de la hiperheurística
     

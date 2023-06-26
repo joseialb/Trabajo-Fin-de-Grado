@@ -251,7 +251,7 @@ class Step(Problema):
 # Aplicacion de la metaoptimización
 if __name__ == "__main__":
     # Definicion del conjunto de entrenamiento
-    dim = 3
+    dim = 10
     t = 0.1
     entrenamiento = [Ackley(dim), Griewank(dim),
                      Rosenbrock(dim), Schwefel1_2(dim),
@@ -268,6 +268,8 @@ if __name__ == "__main__":
         
         pso1_valores = []
         pso2_valores = []
+        pso3_valores = []
+        
         for j in range(50):
             problema = Rastrigin(dim)
             pso1 = pso.PSO(problema.limInf, problema.limSup, n_part, problema.f, [w, cog, soc])
@@ -286,14 +288,27 @@ if __name__ == "__main__":
                 pso2.iteracion()
                 i2 += 1
             pso2_valores.append((i2, pso2.mejor_valor))
+            
+            problema = Esfera(dim)
+            pso3 = pso.PSO(problema.limInf, problema.limSup, n_part, problema.f, [w, cog, soc])
+            t3 = time.time()
+            i3 = 0
+            while time.time() - t3 < t:
+                pso3.iteracion()
+                i3 += 1
+            pso3_valores.append((i3, pso3.mejor_valor))
+        
         
         media_i1 = sum( [x[0] for x in pso1_valores] )/50
         media_i2 = sum( [x[0] for x in pso2_valores] )/50
+        media_i3 = sum( [x[0] for x in pso3_valores] )/50
         media_pso1 = sum( [x[1] for x in pso1_valores] )/50
         media_pso2 = sum( [x[1] for x in pso2_valores] )/50       
+        media_pso3 = sum( [x[1] for x in pso3_valores] )/50       
+
          
         with open("Coeficientes.txt", "a") as f:
-            f.write(f"{dim}; {n_part}; {w}; {cog}; {soc}; {(media_i1, media_pso1)}; {(media_i2, media_pso2)}\n")
+            f.write(f"{dim} & {n_part} & {w:.4f} & {cog:.4f} & {soc:.4f} & ({media_i1}, {media_pso1:.4f}) & ({media_i2}, {media_pso2:.4f}) & ({media_i3}, {media_pso3:.4f})\\\\\n")
         
     
                 
