@@ -251,7 +251,7 @@ class Step(Problema):
 # Aplicacion de la metaoptimización
 if __name__ == "__main__":
     # Definicion del conjunto de entrenamiento
-    dim = 10
+    dim = 3
     t = 0.1
     entrenamiento = [Ackley(dim), Griewank(dim),
                      Rosenbrock(dim), Schwefel1_2(dim),
@@ -308,9 +308,9 @@ if __name__ == "__main__":
 
          
         with open("Coeficientes.txt", "a") as f:
-            f.write(f"{dim} & {n_part} & {w:.4f} & {cog:.4f} & {soc:.4f} & ({media_i1}, {media_pso1:.4f}) & ({media_i2}, {media_pso2:.4f}) & ({media_i3}, {media_pso3:.4f})\\\\\n")
+            f.write(f"{dim} & {n_part} & {w:.4f} & {cog:.4f} & {soc:.4f} & ({media_i1}, {media_pso1}) & ({media_i2}, {media_pso2}) & ({media_i3}, {media_pso3})\\\\\n")
         
-    
+
                 
                 
             

@@ -77,20 +77,46 @@ class Cromosoma():
 
         
     
-# Funciones de testing
+"""
+Aqui se presenta la implementacion de un algoritmo genético. 
+Existen distintas variaciones, la aqui presentada consiste en la variante que tiene recombinación 
+uniforme, selección por torneo y reemplazamiento con elitismo.
 
-# Esfera
-def f1(x):
-    return sum([x[i] ** 2 for i in range(len(x))])
-
-LU = [100 for i in range(3)]
-LI = [-100 for i in range(3)]
+"""
 
 
+""" 
+# Ejemplo de aplicación:
+
+from numpy import cos, sqrt, exp, e, pi
+
+# Definicion de la función objetivo
+
+# Función de Rastrigin 
+def Rastrigin(x):
+    s = 0
+    for i in x:
+        s += i**2 +10 -10*cos(2*pi*i)
+    return s
+
+# Esta funcion tiene un minimo absoluto en x = [0,0,...,0] con valor 0
 
 
+# Definicion del espacio de búsqueda
 
-ga1 = GA(100, 4, 5, 0.2, LI, LU, f1) 
-ga1.evolucionar(10000)
+dim = 5
+LI = numpy.array([-5.12] * dim)
+LS = numpy.array([5.12] * dim)
+
+
+# Definicion de la metaheuristica:
+ga1 = GA(1000, 4, 5, 0.2, LI, LS, Rastrigin) 
+ga1.evolucionar(1000)
 print(ga1)
+
+"""
+
+
+
+
     

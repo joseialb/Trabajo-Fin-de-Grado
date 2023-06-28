@@ -85,9 +85,9 @@ class Particula():
         self.vel = w*self.vel + cog*numpy.random.random(n)*v1 + soc*numpy.random.random(n)*v2    
 
 """
-Aqui s epresenta la implementacion de Particle Swarm Optimization. 
-Existen distintas variaciones, la aqui presentada consiste en la síncrona, pero puede darse también asíncrona
-o incluso variaciones discretas del algoritmo
+Aqui se presenta la implementacion de Particle Swarm Optimization. 
+Existen distintas variaciones, la aqui presentada consiste en la variante síncrona, pero puede darse también
+asíncrona o incluso variaciones discretas del algoritmo, entre otras.
 
 Si el vecindario es el conjunto total de particulas, el coste de cada iteracion es lineal, ya que se usa el 
 mejor valor global. En caso de tener vecindarios de tamaño k, el coste por iteracion será O(k*n_part)
@@ -114,16 +114,16 @@ def Rastrigin(x):
 # Definicion del espacio de búsqueda
 
 dim = 5
-limInf = np.array([-5.12] * dim)
-limSup = np.array([5] * dim)
+limInf = numpy.array([-5.12] * dim)
+limSup = numpy.array([5.12] * dim)
 
 
 # Definicion de la metaheuristica:
-n_part = 100
+n_part = 1000
 coef = [0.2 , 0.7, 0.7]
 p = PSO(limInf, limSup, n_part, Rastrigin, coef)
 
-p.iterar(100)
+p.iterar(1000)
 
 """
 

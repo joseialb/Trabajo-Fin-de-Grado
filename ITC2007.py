@@ -534,7 +534,6 @@ class Problema():
         C2R, C2D, CPS, CFL, CP, CR, CNM = 0, 0, 0, 0, 0, 0, 0
         
         for p in self.periodos:
-            # estudiantes_por_periodo[p.id] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p.id]])
             # PERIODPENALTY
             CP += len(grafo.nodos_por_periodo[p.id]) * self.periodos[p.id].penalizacion
             # TWOINADAY y TWOINAROW (son excluyentes, de ahi el [:-1])
@@ -603,7 +602,6 @@ class Problema():
         rid = color[1]
         dia = set(self.dias[self.periodos[pid].dia]) - {pid}
         spread = set(range(pid-self.gap, pid+self.gap+1)) & self.idsPeriodos - {pid}
-        # estudiantes_por_periodo = {}                            # Para mas eficiencia, esto podria guardarse en los datos del grafo actualizandolo cada vez que se actualiza nodo por periodo
         C2R, C2D, CPS, CFL = 0, 0, 0, 0
         
         # PERIODPENALTY
@@ -613,7 +611,6 @@ class Problema():
         if (color[0] > max(self.idsPeriodos) - self.FRONTLOAD[1]) and (grafo.nodos[nodo].id in self.examenes_grandes): CFL = 1
         
         for p2 in dia | spread:
-            # estudiantes_por_periodo[p2] = set().union(*[self.examenes[id_nodo].estudiantes for id_nodo in grafo.nodos_por_periodo[p2]])
             # TWOINADAY y TWOINAROW
             if p2 in dia:
                 if (p2 == pid -1) or (p2 == pid +1):  C2R += len(self.examenes[nodo].estudiantes & grafo.estudiantes_por_periodo[p2])
@@ -701,7 +698,6 @@ def generarSolucion(entrada, salida, max_it = 100):
         movimientos = [ lambda x, h: GHH.repetirMov(GHH.cambiarVarios, x, h, m, 1) for m in [2,5,10] ]
         heuristicas = [GHH.LargestDegree, GHH.LeastSaturationDegree, GHH.LargestColorDegree, GHH.GradoRestricciones, GHH.LargestWeightedDegree, GHH.LargestEnrollment, GHH.Random]
         hl_inicial, str_init = [GHH.LeastSaturationDegree] * n , "Saturation"
-        # hl_inicial, str_init = [GHH.LargestColorDegree] * n , "Colored"
         # hl_inicial, str_init = None , "ListaAleatoria"
         
         ruleta = False
@@ -782,74 +778,6 @@ if __name__ == "__main__":
         except HiperHeuristicaFallida as e:
             HHs.append(e.HH)
             print(e)
-            print("Algo ha pasao en el dataset ", i+1)
+            print("Algo ha pasado en el dataset: Error o solucion infactible", i+1)
             continue
-        
-            
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         

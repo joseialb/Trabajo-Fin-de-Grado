@@ -236,7 +236,6 @@ class GHH():
                 h(g, self.f_pred, self.e)
             except HeuristicaFallida as error:
                 self.fallidas.append(hl[:i+1])
-                # print(i*self.e+error.paso_de_error)
                 raise HeuristicaFallida(error.message, i*self.e+error.paso_de_error) from error
                 # Medimos la distancia a la factibilidad en funcion del numero de pasos que tarde la heuristica en no encontrar una solucion factible con el objetivo de alcanzar la factibilidad en vecindarios donde todas las soluciones generen coloraciones infactibles
         return g
@@ -258,7 +257,7 @@ class GHH():
                 if  fallo > 0: 
                     dist_fact.append(fallo)
                     continue
-                    # Evitamos volver a ejecutar heurísticas que fallan en un sitio conocido como es sugerido por Burke et al.
+                    # Evitamos volver a ejecutar heurísticas que fallan en un sitio conocido, como es sugerido por Burke et al.
                 g = self.aplicar_hl(hl)
                 val = self.f_obj(g)
                 dist_fact.append(0)
