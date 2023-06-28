@@ -7,12 +7,23 @@
   - ModeloITC2007.pdf       es el artículo donde se explica el modelo de problema (i. e. Las restricciones que se deben cumplir y la función objetivo)
 
 
+## Metaheurísticas
+  Se añade la implementación de las metaheuristicas desarrolladas en el trabajo a modo de ejemplo
+  - TabuSearch.py                   corresponde con la implementación de una búsqueda tabú. A modo de ejemplo, está comentado como se aplicaría esta a la resolución del problema de la mochila 0-1
+  - ParticleSwarmOptimization.py    corresponde con la implementación del PSO. A modo de ejemplo, está comentado como se realizaría una ejecución sobre la función de Rastrigin. Este archivo también es empleado en la metaoptimización.
+  - AlgoritmosGeneticos.py          corresponde con la implementación de un algoritmo genético. A modo de ejemplo, está comentado como se realizaría una ejecución sobre la función de Rastrigin.
+
+
 ## Algoritmo para la resolución de ITC2007
   El algoritmo está dividido en dos archivos, uno que corresponde a la propia Graph-HiperHeuristic (GHH) y otro que corresponde a la modelización de ITC 2007 y la aplicación de GHH sobre estos datos
   - GHH.py                  contiene la hiperheurística mencionada, es aplicable a problemas distintos de los de ITC2007
   - ITC2007.py              contiene la modelización y aplicación de GHH. La misma modelización no será, en general, aplicable a otros problemas
+  - SolucionesITC2007       contiene las soluciones encontradas por la hiperheurística sobre cada uno de los problemas de la competicion. El formato es .sol, pero esto es un texto plano que puede ser cambiado a .txt para facilitar su lectura en Windows.
 
 
-## Metaheurísticas
-  Se añade la implementación de las metaheuristicas desarrolladas en el trabajo a modo de ejemplo
-  - TabuSearch.py           corresponde con la implementación de una búsqueda tabú. A modo de ejemplo, esta comentado como se aplicaría esta a la resolución del problema de la mochila 0-1
+## Metaoptimización de los parámetros del PSO
+  Estos archivos contienen los resultados y el algoritmo empleado para realizar la metaoptimización
+  - MetaOptimizacionDelPSO.py    contiene el algoritmo empleado.
+  - Coeficientes.txt             contiene los resultados de la aplicación del algoritmo
+
+
